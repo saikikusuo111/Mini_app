@@ -4,8 +4,13 @@ from fastapi import APIRouter, Depends, Header
 
 from app.api.errors import api_error
 from app.core.db import get_db
-from app.schemas.sessions import SessionStartRequest, SessionStartResponse
-from app.services.session_service import start_session
+from app.schemas.sessions import (
+    SessionAnswerRequest,
+    SessionAnswerResponse,
+    SessionStartRequest,
+    SessionStartResponse,
+)
+from app.services.session_service import start_session, submit_session_answer
 
 router = APIRouter()
 
@@ -29,4 +34,19 @@ def create_session(
         raw_session_token=raw_token,
         item_name=payload.item_name,
         item_price=payload.item_price,
+    )
+
+
+@router.post('/{session_id}/answer', response_model=SessionAnswerResponse)
+def answer_question(
+    session_id: str,
+    payload: SessionAnswerRequest,
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    return submit_session_answer(
+        conn,
+        session_id=session_id,
+        question_id=payload.question_id,
+        question_order=payload.question_order,
+        answer_value=payload.answer_value,
     )

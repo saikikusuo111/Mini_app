@@ -11,3 +11,15 @@ class SessionStartResponse(BaseModel):
     flow_type: str
     started_at: str
     current_question_order: int
+
+
+class SessionAnswerRequest(BaseModel):
+    question_id: str = Field(min_length=1, max_length=64)
+    question_order: int = Field(ge=1)
+    answer_value: int = Field(ge=0, le=10)
+
+
+class SessionAnswerResponse(BaseModel):
+    ok: bool
+    session_id: str
+    current_question_order: int
