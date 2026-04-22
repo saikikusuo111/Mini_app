@@ -37,3 +37,33 @@ export async function startSession({ itemName, itemPrice, sessionToken }) {
     }),
   });
 }
+
+export async function submitSessionAnswer({ sessionId, questionId, questionOrder, answerValue }) {
+  const cleanSessionId = String(sessionId ?? '').trim();
+  const cleanQuestionId = String(questionId ?? '').trim();
+
+  if (!cleanSessionId) {
+    throw {
+      code: 'INVALID_SESSION_ID',
+      message: 'Не удалось сохранить ответ: отсутствует session_id',
+      details: { sessionId },
+    };
+  }
+
+  if (!cleanQuestionId) {
+    throw {
+      code: 'INVALID_QUESTION_ID',
+      message: 'Не удалось сохранить ответ: отсутствует question_id',
+      details: { questionId },
+    };
+  }
+
+  return apiFetch(`/sessions/${encodeURIComponent(cleanSessionId)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({
+      question_id: cleanQuestionId,
+      question_order: Number(questionOrder),
+      answer_value: Number(answerValue),
+    }),
+  });
+}
