@@ -14,3 +14,132 @@
 .math-item { border: 2px solid #111111; padding: 8px; background: #ffffff; }
 .math-key { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5d5d5d; margin-bottom: 4px; }
 .math-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
+
+.question-scales-card,
+.drama-scales-card,
+.result-scales-card { padding: 12px; }
+
+#question-range {
+  width: 100%;
+  accent-color: #111111;
+}
+
+.decision-scales {
+  --scale-balance: 0;
+  --scale-intensity: 0;
+}
+
+.decision-scales-frame {
+  border: 2px solid #111111;
+  background: linear-gradient(180deg, #fcf7ec 0%, #f1ecdf 100%);
+  padding: 10px;
+}
+
+.decision-scales-caption {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: #5d5d5d;
+  margin-bottom: 8px;
+  min-height: 28px;
+}
+
+.decision-scales-stage {
+  border: 2px solid #111111;
+  background: #fffdf7;
+  min-height: 138px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.decision-scales-svg {
+  width: 100%;
+  max-width: 320px;
+}
+
+.scales-base .pillar,
+.scales-base .foot,
+.scales-base .pivot {
+  fill: #111111;
+}
+
+.scales-beam-group {
+  transform-origin: 170px 74px;
+  transform: rotate(calc(var(--scale-balance) * 11deg));
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.decision-scales--live .scales-beam-group {
+  transition-duration: 240ms;
+}
+
+.scales-beam-group .beam {
+  fill: url(#beamGradient);
+}
+
+.scales-beam-group .beam-dot {
+  fill: #f5f1e8;
+  stroke: #111111;
+  stroke-width: 2;
+}
+
+.scales-beam-group .rod {
+  stroke: #1f1f1f;
+  stroke-width: 2;
+}
+
+.scales-beam-group .plate rect {
+  fill: url(#plateGradient);
+  stroke: #111111;
+  stroke-width: 2;
+}
+
+.plate-left,
+.plate-right {
+  transform: translateY(calc(var(--scale-balance) * 11px));
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.plate-right {
+  transform: translateY(calc(var(--scale-balance) * -11px));
+}
+
+.decision-scales--question .decision-scales-stage {
+  box-shadow: inset 0 calc(var(--scale-intensity) * 10px) 0 rgba(17, 17, 17, 0.05);
+}
+
+.decision-scales--drama .scales-beam-group {
+  animation: suspenseTilt 1250ms cubic-bezier(0.2, 0.7, 0.12, 1) both;
+}
+
+.decision-scales--result .decision-scales-stage {
+  background: linear-gradient(180deg, #fffcf5 0%, #ece4d3 100%);
+}
+
+.decision-scales--result .scales-base .pillar,
+.decision-scales--result .scales-base .foot,
+.decision-scales--result .scales-base .pivot {
+  fill: #0b0b0b;
+}
+
+.decision-scales-labels {
+  margin-top: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5d5d5d;
+  display: flex;
+  justify-content: space-between;
+}
+
+@keyframes suspenseTilt {
+  0% { transform: rotate(-7deg); }
+  26% { transform: rotate(8deg); }
+  44% { transform: rotate(-4deg); }
+  62% { transform: rotate(2.5deg); }
+  78% { transform: rotate(-1.4deg); }
+  100% { transform: rotate(calc(var(--scale-balance) * 11deg)); }
+}

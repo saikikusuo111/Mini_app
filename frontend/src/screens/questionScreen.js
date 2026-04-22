@@ -1,3 +1,38 @@
+import { createScalesWidget } from '../components/scales.js';
+
+const DEFAULT_RANGE = 5;
+
+function normalizeBalance(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+
+  return Math.max(-1, Math.min(1, (numeric - DEFAULT_RANGE) / DEFAULT_RANGE));
+}
+
+function buildScaleCaption(value) {
+  const diff = Number(value) - DEFAULT_RANGE;
+
+  if (diff >= 4) {
+    return 'Сильный перевес в сторону покупки';
+  }
+
+  if (diff >= 2) {
+    return 'Уверенный уклон в сторону покупки';
+  }
+
+  if (diff <= -4) {
+    return 'Сильный перевес против покупки';
+  }
+
+  if (diff <= -2) {
+    return 'Уверенный уклон против покупки';
+  }
+
+  return 'Баланс почти ровный';
+}
+
 export function renderQuestionScreen(root, context) {
   const { question, session, totalQuestions = 0, onSubmitAnswer } = context;
   const questionNumber = Number(question.order) || 1;
@@ -10,10 +45,9 @@ export function renderQuestionScreen(root, context) {
         <h1 class="title">${escapeHtml(question.text)}</h1>
         <p class="subtitle">${escapeHtml(question.hint)}</p>
 
-        <div class="card">
-          <div class="input-label">Сессия</div>
-          <div class="note mono">${escapeHtml(session.sessionId)}</div>
-          <div class="note">Draft создан в SQLite. Это уже не плейсхолдер, а первая живая decision session.</div>
+        <div class="card question-scales-card">
+          <div class="input-label">Живой баланс ответа</div>
+          <div id="question-scales-preview"></div>
         </div>
 
         <div class="card">
@@ -29,21 +63,46 @@ export function renderQuestionScreen(root, context) {
           </div>
         </div>
 
+        <div class="card">
+          <div class="input-label">Сессия</div>
+          <div class="note mono">${escapeHtml(session.sessionId)}</div>
+          <div class="note">Решение фиксируется шаг за шагом. Текущий ответ сразу влияет на итоговый перевес.</div>
+        </div>
+
         <div id="question-error" class="note" style="color:#b42318; display:none;"></div>
         <button id="next-btn" class="button">Сохранить ответ и идти дальше →</button>
       </div>
     </section>
   `;
 
+  const scalesMount = root.querySelector('#question-scales-preview');
   const range = root.querySelector('#question-range');
   const value = root.querySelector('#range-value');
   const hint = root.querySelector('#context-hint');
   const nextBtn = root.querySelector('#next-btn');
   const errorBox = root.querySelector('#question-error');
 
+  const scales = createScalesWidget({
+    mode: 'question',
+    balance: normalizeBalance(DEFAULT_RANGE),
+    intensity: 0,
+    leftLabel: question.label_left,
+    rightLabel: question.label_right,
+    caption: buildScaleCaption(DEFAULT_RANGE),
+    live: true,
+  });
+  scalesMount.append(scales.element);
+
   function sync() {
     value.textContent = range.value;
     hint.textContent = question.context_hints?.[range.value] || '—';
+
+    const nextBalance = normalizeBalance(range.value);
+    scales.update({
+      balance: nextBalance,
+      intensity: Math.min(1, Math.abs(nextBalance)),
+      caption: buildScaleCaption(range.value),
+    });
   }
 
   range.addEventListener('input', sync);

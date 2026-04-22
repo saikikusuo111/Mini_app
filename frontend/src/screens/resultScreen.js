@@ -1,4 +1,6 @@
 // frontend/src/screens/resultScreen.js
+import { createScalesWidget } from '../components/scales.js';
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -32,6 +34,31 @@ function formatNumber(value, fractionDigits = 2) {
     minimumFractionDigits: 0,
     maximumFractionDigits: fractionDigits,
   }).format(numeric);
+}
+
+function toBalanceByDiff(view) {
+  const scoreFor = Number(view.preliminaryScoreFor);
+  const scoreAgainst = Number(view.preliminaryScoreAgainst);
+  const diffPercent = Number(view.preliminaryDiffPercent);
+
+  if (Number.isFinite(scoreFor) && Number.isFinite(scoreAgainst) && scoreFor !== scoreAgainst) {
+    const maxScore = Math.max(Math.abs(scoreFor), Math.abs(scoreAgainst), 1);
+    return Math.max(-1, Math.min(1, (scoreFor - scoreAgainst) / maxScore));
+  }
+
+  if (Number.isFinite(diffPercent)) {
+    return Math.max(-1, Math.min(1, diffPercent / 40));
+  }
+
+  if (view.finalVerdict === 'buy_now') {
+    return 0.45;
+  }
+
+  if (view.finalVerdict === 'wait_24h') {
+    return -0.45;
+  }
+
+  return 0;
 }
 
 export function buildResultCopy(view) {
@@ -71,6 +98,11 @@ export function renderResultScreen(root, payload = {}) {
         <div class="kicker">Result</div>
         <h1 class="placeholder-title">Финальный итог</h1>
 
+        <div class="card result-scales-card">
+          <div class="input-label">Вердикт весов</div>
+          <div id="result-scales-preview"></div>
+        </div>
+
         <div class="card result-highlight">
           <div class="input-label">Финальное решение</div>
           <div class="result-decision">${escapeHtml(copy.finalDecisionTitle)}</div>
@@ -107,4 +139,17 @@ export function renderResultScreen(root, payload = {}) {
       </div>
     </section>
   `;
+
+  const mount = root.querySelector('#result-scales-preview');
+  const balance = toBalanceByDiff(view);
+  const scales = createScalesWidget({
+    mode: 'result',
+    balance,
+    intensity: Math.min(1, Math.abs(balance) + 0.15),
+    caption: view.usedTiebreaker ? 'Итог закреплён после tie-breaker' : 'Итог закреплён математическим перевесом',
+    leftLabel: 'Против',
+    rightLabel: 'За',
+  });
+
+  mount.append(scales.element);
 }
