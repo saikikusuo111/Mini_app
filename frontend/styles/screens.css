@@ -7,3 +7,10 @@
 .note { font-size: 13px; line-height: 1.45; color: #5d5d5d; }
 .inline-pill { display: inline-block; border: 2px solid #111111; padding: 4px 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; background: white; }
 .placeholder-title { font-size: 28px; line-height: 1.08; letter-spacing: -0.04em; margin: 0 0 8px; }
+.result-highlight { border-width: 3px; }
+.result-decision { font-size: 24px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 700; }
+.result-basis-title { font-size: 15px; line-height: 1.35; font-weight: 600; margin-bottom: 6px; }
+.result-math-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.math-item { border: 2px solid #111111; padding: 8px; background: #ffffff; }
+.math-key { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5d5d5d; margin-bottom: 4px; }
+.math-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
