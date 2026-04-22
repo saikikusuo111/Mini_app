@@ -9,6 +9,10 @@ import { renderErrorScreen } from './screens/errorScreen.js';
 import { renderIntroScreen } from './screens/introScreen.js';
 import { renderQuestionScreen } from './screens/questionScreen.js';
 import { renderPlaceholderScreen } from './screens/placeholderScreen.js';
+import { renderDramaScreen } from './screens/dramaScreen.js';
+import { renderTiebreakerScreen } from './screens/tiebreakerScreen.js';
+import { renderResultScreen } from './screens/resultScreen.js';
+import { resolvePostFinalizeScreen } from './flow/postFinalize.js';
 
 const root = document.getElementById('app');
 
@@ -95,7 +99,9 @@ async function renderCurrentQuestion() {
   const totalQuestions = appState.flowConfig?.questions?.length || 0;
 
   if (isFlowCompleted(order, totalQuestions)) {
-    renderBootScreen(root, 'Финализирую предварительный результат');
+    renderDramaScreen(root);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
     const finalResult = await finalizeSession({
       sessionId: appState.currentSession.sessionId,
     });
@@ -106,6 +112,24 @@ async function renderCurrentQuestion() {
         finalResult,
       },
     });
+
+    const nextScreen = resolvePostFinalizeScreen(finalResult);
+    if (nextScreen === 'TIEBREAKER') {
+      renderTiebreakerScreen(root, {
+        sessionId: appState.currentSession.sessionId,
+        finalResult,
+      });
+      return;
+    }
+
+    if (nextScreen === 'RESULT') {
+      renderResultScreen(root, {
+        sessionId: appState.currentSession.sessionId,
+        finalResult,
+      });
+      return;
+    }
+
     renderPlaceholderScreen(root, {
       sessionId: appState.currentSession.sessionId,
       totalQuestions,
