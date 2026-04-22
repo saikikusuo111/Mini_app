@@ -1,3 +1,4 @@
+# backend/app/schemas/sessions.py
 from pydantic import BaseModel, Field
 
 
@@ -25,26 +26,28 @@ class SessionAnswerResponse(BaseModel):
     current_question_order: int
 
 
-class SessionFinalizeResponse(BaseModel):
+class SessionResultPayload(BaseModel):
     session_id: str
-    score_for: float
-    score_against: float
-    diff: float
-    diff_percent: float
+    preliminary_score_for: float
+    preliminary_score_against: float
+    preliminary_diff: float
+    preliminary_diff_percent: float
     needs_tiebreaker: bool
     preliminary_verdict: str
+    final_verdict: str
+    final_verdict_label: str
+    used_tiebreaker: bool
+    tiebreaker_option_id: str | None
+    result_basis: str
+
+
+class SessionFinalizeResponse(SessionResultPayload):
+    pass
 
 
 class SessionTiebreakerRequest(BaseModel):
     option_id: str = Field(min_length=1, max_length=32)
 
 
-class SessionTiebreakerResponse(BaseModel):
-    session_id: str
-    score_for: float
-    score_against: float
-    diff: float
-    diff_percent: float
-    needs_tiebreaker: bool
-    preliminary_verdict: str
-    tiebreaker_option_id: str
+class SessionTiebreakerResponse(SessionResultPayload):
+    pass

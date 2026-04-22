@@ -1,3 +1,4 @@
+# backend/tests/test_sessions_finalize_smoke.py
 import sqlite3
 import tempfile
 import unittest
@@ -108,12 +109,17 @@ class SessionFinalizeSmokeTest(unittest.TestCase):
             response.json(),
             {
                 'session_id': 'ses_test_1',
-                'score_for': 15.8,
-                'score_against': 6.0,
-                'diff': 9.8,
-                'diff_percent': 44.95,
+                'preliminary_score_for': 15.8,
+                'preliminary_score_against': 6.0,
+                'preliminary_diff': 9.8,
+                'preliminary_diff_percent': 44.95,
                 'needs_tiebreaker': False,
                 'preliminary_verdict': 'buy',
+                'final_verdict': 'buy_now',
+                'final_verdict_label': 'Покупать сейчас',
+                'used_tiebreaker': False,
+                'tiebreaker_option_id': None,
+                'result_basis': 'preliminary_math',
             },
         )
 

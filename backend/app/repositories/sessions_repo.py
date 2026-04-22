@@ -1,3 +1,4 @@
+# backend/app/repositories/sessions_repo.py
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -145,7 +146,14 @@ def complete_decision_session(
     )
 
 
-def set_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, tiebreaker_value: int) -> None:
+def set_session_tiebreaker(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    tiebreaker_value: int,
+    verdict: str,
+    verdict_label: str,
+) -> None:
     conn.execute(
         '''
         UPDATE decision_sessions
@@ -179,8 +187,8 @@ def set_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, tiebrea
         ''',
         (
             f'dec_{uuid.uuid4().hex[:12]}',
-            'buy' if tiebreaker_value >= 3 else 'skip',
-            'Покупать' if tiebreaker_value >= 3 else 'Не покупать',
+            verdict,
+            verdict_label,
             tiebreaker_value,
             utc_now(),
             session_id,

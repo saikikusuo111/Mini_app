@@ -1,3 +1,4 @@
+# backend/app/services/session_service.py
 import sqlite3
 from datetime import datetime, timezone
 
@@ -165,13 +166,45 @@ def _compute_preliminary_result(*, flow: dict, answers_by_question_id: dict[str,
         preliminary_verdict = 'tiebreaker_required'
 
     return {
-        'score_for': round(score_for, 4),
-        'score_against': round(score_against, 4),
-        'diff': round(diff, 4),
-        'diff_percent': round(diff_percent, 2),
+        'preliminary_score_for': round(score_for, 4),
+        'preliminary_score_against': round(score_against, 4),
+        'preliminary_diff': round(diff, 4),
+        'preliminary_diff_percent': round(diff_percent, 2),
         'needs_tiebreaker': needs_tiebreaker,
         'preliminary_verdict': preliminary_verdict,
     }
+
+
+TIEBREAKER_OPTIONS = {
+    'buy_now': {
+        'value': 4,
+        'final_verdict': 'buy_now',
+        'final_verdict_label': 'Покупать сейчас',
+    },
+    'wait_24h': {
+        'value': 3,
+        'final_verdict': 'wait_24h',
+        'final_verdict_label': 'Подождать 24 часа',
+    },
+    'find_alternative': {
+        'value': 2,
+        'final_verdict': 'find_alternative',
+        'final_verdict_label': 'Искать альтернативу',
+    },
+    'skip_purchase': {
+        'value': 1,
+        'final_verdict': 'skip_purchase',
+        'final_verdict_label': 'Не покупать',
+    },
+}
+
+
+def _resolve_math_final_verdict(preliminary_verdict: str) -> tuple[str, str]:
+    if preliminary_verdict == 'buy':
+        return 'buy_now', 'Покупать сейчас'
+    if preliminary_verdict == 'skip':
+        return 'skip_purchase', 'Не покупать'
+    return 'tiebreaker_required', 'Требуется tie-breaker'
 
 
 def finalize_session(conn: sqlite3.Connection, *, session_id: str) -> dict:
@@ -207,26 +240,25 @@ def finalize_session(conn: sqlite3.Connection, *, session_id: str) -> dict:
     complete_decision_session(
         conn,
         session_id=session_id,
-        score_for=result['score_for'],
-        score_against=result['score_against'],
-        diff=result['diff'],
-        diff_percent=result['diff_percent'],
+        score_for=result['preliminary_score_for'],
+        score_against=result['preliminary_score_against'],
+        diff=result['preliminary_diff'],
+        diff_percent=result['preliminary_diff_percent'],
         needs_tiebreaker=result['needs_tiebreaker'],
     )
     conn.commit()
 
+    final_verdict, final_verdict_label = _resolve_math_final_verdict(result['preliminary_verdict'])
+
     return {
         'session_id': session_id,
         **result,
+        'final_verdict': final_verdict,
+        'final_verdict_label': final_verdict_label,
+        'used_tiebreaker': False,
+        'tiebreaker_option_id': None,
+        'result_basis': 'preliminary_math',
     }
-
-
-TIEBREAKER_OPTIONS = {
-    'buy_now': 4,
-    'wait_24h': 3,
-    'find_alternative': 2,
-    'skip_purchase': 1,
-}
 
 
 def submit_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, option_id: str) -> dict:
@@ -245,8 +277,8 @@ def submit_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, opti
             status_code=409,
         )
 
-    option_value = TIEBREAKER_OPTIONS.get(option_id)
-    if option_value is None:
+    option_meta = TIEBREAKER_OPTIONS.get(option_id)
+    if option_meta is None:
         raise api_error(
             code='TIEBREAKER_OPTION_INVALID',
             message='Передана некорректная tie-breaker опция',
@@ -257,22 +289,23 @@ def submit_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, opti
     set_session_tiebreaker(
         conn,
         session_id=session_id,
-        tiebreaker_value=option_value,
+        tiebreaker_value=option_meta['value'],
+        verdict=option_meta['final_verdict'],
+        verdict_label=option_meta['final_verdict_label'],
     )
     conn.commit()
 
-    score_for = float(session['preliminary_score_for'] or 0)
-    score_against = float(session['preliminary_score_against'] or 0)
-    diff = float(session['preliminary_diff'] or 0)
-    diff_percent = float(session['preliminary_diff_percent'] or 0)
-
     return {
         'session_id': session_id,
-        'score_for': score_for,
-        'score_against': score_against,
-        'diff': diff,
-        'diff_percent': diff_percent,
+        'preliminary_score_for': float(session['preliminary_score_for'] or 0),
+        'preliminary_score_against': float(session['preliminary_score_against'] or 0),
+        'preliminary_diff': float(session['preliminary_diff'] or 0),
+        'preliminary_diff_percent': float(session['preliminary_diff_percent'] or 0),
         'needs_tiebreaker': False,
-        'preliminary_verdict': 'buy' if option_value >= 3 else 'skip',
+        'preliminary_verdict': 'tiebreaker_required',
+        'final_verdict': option_meta['final_verdict'],
+        'final_verdict_label': option_meta['final_verdict_label'],
+        'used_tiebreaker': True,
         'tiebreaker_option_id': option_id,
+        'result_basis': 'tiebreaker_choice',
     }
