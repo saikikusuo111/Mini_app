@@ -1,4 +1,4 @@
-.boot-box, .error-box, .intro-box, .placeholder-box { width: 100%; }
+.boot-box, .error-box, .intro-box, .placeholder-box, .drama-box, .tiebreaker-box, .result-box { width: 100%; }
 .status-line { font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: #5d5d5d; margin-bottom: 14px; }
 .pulse { display: inline-block; width: 10px; height: 10px; background: #111111; margin-right: 8px; animation: pulse 1.1s infinite alternate ease-in-out; }
 @keyframes pulse { from { transform: scale(0.9); opacity: 0.5; } to { transform: scale(1.2); opacity: 1; } }
