@@ -1,26 +1,51 @@
-export function renderPlaceholderScreen(root, draft) {
+export function renderPlaceholderScreen(root, payload = {}) {
+  const answers = payload.answers || {};
+  const answeredCount = Object.keys(answers).length;
+  const totalQuestions = Number(payload.totalQuestions || 0);
+
   root.innerHTML = `
     <section class="placeholder">
       <div class="card placeholder-box stack-12">
-        <div class="kicker">Wave 2 complete</div>
-        <h1 class="placeholder-title">Первая decision session создана</h1>
+        <div class="kicker">Flow complete</div>
+        <h1 class="placeholder-title">Опрос завершён</h1>
         <p class="subtitle">
-          Session стартовала, первый вопрос показан, первый ответ собран на фронте.
-          Следующий шаг — сделать <span class="mono">POST /sessions/{id}/answer</span>
-          и полноценный переход ко второму вопросу.
+          Все вопросы пройдены. Следующий шаг — собрать
+          <span class="mono">finalize / drama / result</span>.
         </p>
+
         <div class="card">
           <div class="input-label">Сессия</div>
-          <div class="mono"><strong>${escapeHtml(draft.sessionId || '—')}</strong></div>
-          <div class="note">${escapeHtml(draft.itemName || 'покупка')} · $${escapeHtml(draft.itemPrice || '')}</div>
+          <div class="mono"><strong>${escapeHtml(payload.sessionId || '—')}</strong></div>
+          <div class="note">Отвечено: ${answeredCount} из ${totalQuestions}</div>
         </div>
+
         <div class="card">
-          <div class="input-label">Первый ответ</div>
-          <div><strong>${escapeHtml(draft.questionId || 'question')} = ${escapeHtml(draft.answerValue ?? '—')}</strong></div>
-          <div class="note">Порядок вопроса: ${escapeHtml(draft.questionOrder ?? '—')}</div>
+          <div class="input-label">Ответы</div>
+          ${renderAnswersList(answers)}
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderAnswersList(answers) {
+  const entries = Object.entries(answers || {});
+  if (!entries.length) {
+    return '<div class="note">Ответы пока не найдены.</div>';
+  }
+
+  return `
+    <div style="display:grid; gap:8px;">
+      ${entries
+        .map(
+          ([questionId, value]) => `
+            <div class="note">
+              <strong>${escapeHtml(questionId)}</strong>: ${escapeHtml(value)}
+            </div>
+          `
+        )
+        .join('')}
+    </div>
   `;
 }
 

@@ -8,8 +8,20 @@ import { renderBootScreen } from './screens/bootScreen.js';
 import { renderErrorScreen } from './screens/errorScreen.js';
 import { renderIntroScreen } from './screens/introScreen.js';
 import { renderQuestionScreen } from './screens/questionScreen.js';
+import { renderPlaceholderScreen } from './screens/placeholderScreen.js';
 
 const root = document.getElementById('app');
+
+function isFlowCompleted(currentQuestionOrder, totalQuestions) {
+  const order = Number(currentQuestionOrder);
+  const total = Number(totalQuestions);
+
+  if (!Number.isFinite(order) || !Number.isFinite(total) || total < 1) {
+    return false;
+  }
+
+  return order > total;
+}
 
 async function boot() {
   try {
@@ -80,6 +92,17 @@ async function handleStartSession(draft) {
 
 function renderCurrentQuestion() {
   const order = appState.currentSession?.currentQuestionOrder;
+  const totalQuestions = appState.flowConfig?.questions?.length || 0;
+
+  if (isFlowCompleted(order, totalQuestions)) {
+    renderPlaceholderScreen(root, {
+      sessionId: appState.currentSession.sessionId,
+      totalQuestions,
+      answers: appState.currentSession.answers || {},
+    });
+    return;
+  }
+
   const question = appState.flowConfig?.questions?.find((item) => item.order === order);
 
   if (!question) {
@@ -94,7 +117,7 @@ function renderCurrentQuestion() {
   renderQuestionScreen(root, {
     question,
     session: appState.currentSession,
-    totalQuestions: appState.flowConfig?.questions?.length || 0,
+    totalQuestions,
     onSubmitAnswer: async ({ answerValue, questionId, questionOrder }) => {
       const response = await submitSessionAnswer({
         sessionId: appState.currentSession.sessionId,
