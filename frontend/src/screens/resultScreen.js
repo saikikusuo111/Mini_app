@@ -22,9 +22,48 @@ export function buildResultViewModel(finalResult = {}) {
   };
 }
 
+function formatNumber(value, fractionDigits = 2) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: fractionDigits,
+  }).format(numeric);
+}
+
+export function buildResultCopy(view) {
+  const finalDecisionTitle = view.finalVerdictLabel || 'Решение готово';
+  const basisHeadline = view.usedTiebreaker
+    ? 'Финальный выбор сделан на этапе tie-breaker.'
+    : 'Финальный выбор сделан напрямую по взвешенной математике.';
+
+  const basisDetail = view.usedTiebreaker
+    ? 'Когда предварительные баллы оказались слишком близкими, система запросила дополнительный выбор. Именно этот выбор зафиксировал итог.'
+    : 'Дополнительный tie-breaker не потребовался: разница в итоговых весах оказалась достаточной для прямого решения.';
+
+  const preliminaryVerdictText = view.preliminaryVerdict === 'tiebreaker_required'
+    ? 'Предварительный расчет показал пограничный результат, поэтому понадобился tie-breaker.'
+    : 'Предварительный расчет сразу дал достаточно уверенный перевес.';
+
+  return {
+    finalDecisionTitle,
+    basisHeadline,
+    basisDetail,
+    preliminaryVerdictText,
+    preliminaryFor: formatNumber(view.preliminaryScoreFor),
+    preliminaryAgainst: formatNumber(view.preliminaryScoreAgainst),
+    preliminaryDiff: formatNumber(view.preliminaryDiff),
+    preliminaryDiffPercent: formatNumber(view.preliminaryDiffPercent),
+  };
+}
+
 export function renderResultScreen(root, payload = {}) {
   const finalResult = payload.finalResult || {};
   const view = buildResultViewModel(finalResult);
+  const copy = buildResultCopy(view);
 
   root.innerHTML = `
     <section class="placeholder">
@@ -32,26 +71,38 @@ export function renderResultScreen(root, payload = {}) {
         <div class="kicker">Result</div>
         <h1 class="placeholder-title">Финальный итог</h1>
 
-        <div class="card">
+        <div class="card result-highlight">
           <div class="input-label">Финальное решение</div>
-          <div class="mono"><strong>${escapeHtml(view.finalVerdictLabel)}</strong></div>
-          <div class="note">final_verdict: <strong>${escapeHtml(view.finalVerdict)}</strong></div>
+          <div class="result-decision">${escapeHtml(copy.finalDecisionTitle)}</div>
         </div>
 
         <div class="card">
-          <div class="input-label">Основание результата</div>
-          <div class="note">result_basis: <strong>${escapeHtml(view.resultBasis)}</strong></div>
-          <div class="note">used_tiebreaker: <strong>${escapeHtml(view.usedTiebreaker)}</strong></div>
-          <div class="note">tiebreaker_option_id: <strong>${escapeHtml(view.tiebreakerOptionId)}</strong></div>
+          <div class="input-label">Почему получился именно такой итог</div>
+          <div class="result-basis-title">${escapeHtml(copy.basisHeadline)}</div>
+          <div class="note">${escapeHtml(copy.basisDetail)}</div>
         </div>
 
         <div class="card">
-          <div class="input-label">Предварительная математика (до tie-breaker)</div>
-          <div class="note">preliminary_verdict: <strong>${escapeHtml(view.preliminaryVerdict)}</strong></div>
-          <div class="note">preliminary_score_for: <strong>${escapeHtml(view.preliminaryScoreFor)}</strong></div>
-          <div class="note">preliminary_score_against: <strong>${escapeHtml(view.preliminaryScoreAgainst)}</strong></div>
-          <div class="note">preliminary_diff: <strong>${escapeHtml(view.preliminaryDiff)}</strong></div>
-          <div class="note">preliminary_diff_percent: <strong>${escapeHtml(view.preliminaryDiffPercent)}</strong></div>
+          <div class="input-label">Что показал предварительный расчет</div>
+          <div class="note">${escapeHtml(copy.preliminaryVerdictText)}</div>
+          <div class="result-math-grid">
+            <div class="math-item">
+              <div class="math-key">За покупку</div>
+              <div class="math-value">${escapeHtml(copy.preliminaryFor)}</div>
+            </div>
+            <div class="math-item">
+              <div class="math-key">Против покупки</div>
+              <div class="math-value">${escapeHtml(copy.preliminaryAgainst)}</div>
+            </div>
+            <div class="math-item">
+              <div class="math-key">Разница</div>
+              <div class="math-value">${escapeHtml(copy.preliminaryDiff)}</div>
+            </div>
+            <div class="math-item">
+              <div class="math-key">Разница, %</div>
+              <div class="math-value">${escapeHtml(copy.preliminaryDiffPercent)}</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

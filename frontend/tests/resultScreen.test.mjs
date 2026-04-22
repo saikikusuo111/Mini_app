@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildResultViewModel } from '../src/screens/resultScreen.js';
+import { buildResultCopy, buildResultViewModel } from '../src/screens/resultScreen.js';
 
 test('buildResultViewModel keeps preliminary math while using tiebreaker final verdict', () => {
   const view = buildResultViewModel({
@@ -30,4 +30,22 @@ test('buildResultViewModel keeps preliminary math while using tiebreaker final v
     preliminaryDiff: 0.3,
     preliminaryDiffPercent: 1.51,
   });
+});
+
+test('buildResultCopy explains that final decision came from weighted math when tie-breaker was not used', () => {
+  const view = buildResultViewModel({
+    final_verdict_label: 'Покупать',
+    preliminary_verdict: 'buy_now',
+    preliminary_score_for: 12,
+    preliminary_score_against: 8,
+    preliminary_diff: 4,
+    preliminary_diff_percent: 33.33,
+    used_tiebreaker: false,
+  });
+
+  const copy = buildResultCopy(view);
+
+  assert.equal(copy.finalDecisionTitle, 'Покупать');
+  assert.match(copy.basisHeadline, /взвешенной математике/);
+  assert.match(copy.basisDetail, /tie-breaker не потребовался/);
 });
