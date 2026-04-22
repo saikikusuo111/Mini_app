@@ -82,3 +82,31 @@ export async function finalizeSession({ sessionId }) {
     method: 'POST',
   });
 }
+
+export async function submitSessionTiebreaker({ sessionId, optionId }) {
+  const cleanSessionId = String(sessionId ?? '').trim();
+  const cleanOptionId = String(optionId ?? '').trim();
+
+  if (!cleanSessionId) {
+    throw {
+      code: 'INVALID_SESSION_ID',
+      message: 'Не удалось отправить tie-breaker: отсутствует session_id',
+      details: { sessionId },
+    };
+  }
+
+  if (!cleanOptionId) {
+    throw {
+      code: 'INVALID_TIEBREAKER_OPTION',
+      message: 'Не удалось отправить tie-breaker: отсутствует option_id',
+      details: { optionId },
+    };
+  }
+
+  return apiFetch(`/sessions/${encodeURIComponent(cleanSessionId)}/tiebreaker`, {
+    method: 'POST',
+    body: JSON.stringify({
+      option_id: cleanOptionId,
+    }),
+  });
+}

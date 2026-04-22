@@ -143,3 +143,46 @@ def complete_decision_session(
             session_id,
         ),
     )
+
+
+def set_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, tiebreaker_value: int) -> None:
+    conn.execute(
+        '''
+        UPDATE decision_sessions
+        SET
+          needs_tiebreaker = 0,
+          updated_at = ?
+        WHERE id = ?
+        ''',
+        (utc_now(), session_id),
+    )
+
+    conn.execute(
+        '''
+        INSERT INTO decisions (
+          id, user_id, session_id, flow_type, item_name, item_price, verdict, verdict_label,
+          score_for, score_against, diff, diff_percent, used_tiebreaker, tiebreaker_value,
+          scoring_version, created_at
+        )
+        SELECT
+          ?, user_id, id, flow_type, item_name, item_price, ?, ?,
+          preliminary_score_for, preliminary_score_against, preliminary_diff, preliminary_diff_percent,
+          1, ?, scoring_version, ?
+        FROM decision_sessions
+        WHERE id = ?
+        ON CONFLICT(session_id)
+        DO UPDATE SET
+          verdict = excluded.verdict,
+          verdict_label = excluded.verdict_label,
+          used_tiebreaker = excluded.used_tiebreaker,
+          tiebreaker_value = excluded.tiebreaker_value
+        ''',
+        (
+            f'dec_{uuid.uuid4().hex[:12]}',
+            'buy' if tiebreaker_value >= 3 else 'skip',
+            'Покупать' if tiebreaker_value >= 3 else 'Не покупать',
+            tiebreaker_value,
+            utc_now(),
+            session_id,
+        ),
+    )

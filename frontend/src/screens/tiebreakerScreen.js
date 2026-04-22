@@ -7,28 +7,56 @@ function escapeHtml(value) {
 }
 
 export function renderTiebreakerScreen(root, payload = {}) {
+  const options = [
+    { id: 'buy_now', label: 'Купить сейчас' },
+    { id: 'wait_24h', label: 'Подождать 24 часа' },
+    { id: 'find_alternative', label: 'Поискать альтернативу' },
+    { id: 'skip_purchase', label: 'Отказаться от покупки' },
+  ];
+
   root.innerHTML = `
     <section class="placeholder">
       <div class="card tiebreaker-box stack-12">
-        <div class="kicker">Tie-breaker pending</div>
-        <h1 class="placeholder-title">Нужен дополнительный вопрос</h1>
+        <div class="kicker">Tie-breaker</div>
+        <h1 class="placeholder-title">Что важнее прямо сейчас?</h1>
         <p class="subtitle">
-          Баланс почти равный, поэтому следующий шаг — tie-breaker экран.
-          Пока оставляем это как заглушку.
+          Баланс почти равный. Выбери один вариант — бэкенд рассчитает финальный результат.
         </p>
 
-        <div class="card">
-          <div class="input-label">Сессия</div>
-          <div class="mono"><strong>${escapeHtml(payload.sessionId || payload.finalResult?.session_id || '—')}</strong></div>
-        </div>
-
-        <div class="card">
-          <div class="input-label">Pre-result (fallback)</div>
-          <div class="note">diff: <strong>${escapeHtml(payload.finalResult?.diff)}</strong></div>
-          <div class="note">diff_percent: <strong>${escapeHtml(payload.finalResult?.diff_percent)}</strong></div>
-          <div class="note">preliminary_verdict: <strong>${escapeHtml(payload.finalResult?.preliminary_verdict)}</strong></div>
+        <div class="stack-8">
+          ${options
+            .map(
+              (option) => `
+              <button class="btn-primary" data-tiebreaker-option="${escapeHtml(option.id)}">
+                ${escapeHtml(option.label)}
+              </button>
+            `,
+            )
+            .join('')}
         </div>
       </div>
     </section>
   `;
+
+  const buttons = root.querySelectorAll('[data-tiebreaker-option]');
+  buttons.forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (typeof payload.onSubmit !== 'function') {
+        return;
+      }
+
+      const optionId = button.getAttribute('data-tiebreaker-option');
+      buttons.forEach((item) => {
+        item.disabled = true;
+      });
+
+      try {
+        await payload.onSubmit({ optionId });
+      } finally {
+        buttons.forEach((item) => {
+          item.disabled = false;
+        });
+      }
+    });
+  });
 }
