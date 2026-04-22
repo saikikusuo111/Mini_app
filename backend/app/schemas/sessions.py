@@ -33,3 +33,18 @@ class SessionFinalizeResponse(BaseModel):
     diff_percent: float
     needs_tiebreaker: bool
     preliminary_verdict: str
+
+
+class SessionTiebreakerRequest(BaseModel):
+    option_id: str = Field(min_length=1, max_length=32)
+
+
+class SessionTiebreakerResponse(BaseModel):
+    session_id: str
+    score_for: float
+    score_against: float
+    diff: float
+    diff_percent: float
+    needs_tiebreaker: bool
+    preliminary_verdict: str
+    tiebreaker_option_id: str

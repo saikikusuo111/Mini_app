@@ -8,6 +8,7 @@ from app.repositories.sessions_repo import (
     create_decision_session,
     get_decision_session,
     list_session_answers,
+    set_session_tiebreaker,
     update_current_question_order,
     upsert_session_answer,
 )
@@ -55,7 +56,7 @@ def start_session(
     item_name: str,
     item_price: float,
 ) -> dict:
-    user_id = resolve_user_id_from_session_token(conn, raw_session_token)
+    user_id = resolve_user_id_from_session_token(conn, raw_token=raw_session_token)
     session = create_decision_session(
         conn,
         user_id=user_id,
@@ -217,4 +218,61 @@ def finalize_session(conn: sqlite3.Connection, *, session_id: str) -> dict:
     return {
         'session_id': session_id,
         **result,
+    }
+
+
+TIEBREAKER_OPTIONS = {
+    'buy_now': 4,
+    'wait_24h': 3,
+    'find_alternative': 2,
+    'skip_purchase': 1,
+}
+
+
+def submit_session_tiebreaker(conn: sqlite3.Connection, *, session_id: str, option_id: str) -> dict:
+    session = get_decision_session(conn, session_id=session_id)
+    if not session:
+        raise api_error(
+            code='SESSION_NOT_FOUND',
+            message='Сессия не найдена',
+            status_code=404,
+        )
+
+    if not bool(session['needs_tiebreaker']):
+        raise api_error(
+            code='TIEBREAKER_NOT_REQUIRED',
+            message='Для этой сессии tie-breaker не требуется',
+            status_code=409,
+        )
+
+    option_value = TIEBREAKER_OPTIONS.get(option_id)
+    if option_value is None:
+        raise api_error(
+            code='TIEBREAKER_OPTION_INVALID',
+            message='Передана некорректная tie-breaker опция',
+            details={'allowed_options': list(TIEBREAKER_OPTIONS.keys())},
+            status_code=400,
+        )
+
+    set_session_tiebreaker(
+        conn,
+        session_id=session_id,
+        tiebreaker_value=option_value,
+    )
+    conn.commit()
+
+    score_for = float(session['preliminary_score_for'] or 0)
+    score_against = float(session['preliminary_score_against'] or 0)
+    diff = float(session['preliminary_diff'] or 0)
+    diff_percent = float(session['preliminary_diff_percent'] or 0)
+
+    return {
+        'session_id': session_id,
+        'score_for': score_for,
+        'score_against': score_against,
+        'diff': diff,
+        'diff_percent': diff_percent,
+        'needs_tiebreaker': False,
+        'preliminary_verdict': 'buy' if option_value >= 3 else 'skip',
+        'tiebreaker_option_id': option_id,
     }

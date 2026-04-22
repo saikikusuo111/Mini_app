@@ -1,6 +1,11 @@
 import { telegramAuth } from './api/authApi.js';
 import { getPurchaseFlow } from './api/configApi.js';
-import { finalizeSession, startSession, submitSessionAnswer } from './api/sessionApi.js';
+import {
+  finalizeSession,
+  startSession,
+  submitSessionAnswer,
+  submitSessionTiebreaker,
+} from './api/sessionApi.js';
 import { initTelegram } from './bridge/telegram.js';
 import { setAppState, appState } from './state/appState.js';
 import { hydrateSessionDraft } from './state/sessionStore.js';
@@ -118,6 +123,7 @@ async function renderCurrentQuestion() {
       renderTiebreakerScreen(root, {
         sessionId: appState.currentSession.sessionId,
         finalResult,
+        onSubmit: handleSubmitTiebreaker,
       });
       return;
     }
@@ -175,6 +181,25 @@ async function renderCurrentQuestion() {
 
       await renderCurrentQuestion();
     },
+  });
+}
+
+async function handleSubmitTiebreaker({ optionId }) {
+  const finalResult = await submitSessionTiebreaker({
+    sessionId: appState.currentSession.sessionId,
+    optionId,
+  });
+
+  setAppState({
+    currentSession: {
+      ...appState.currentSession,
+      finalResult,
+    },
+  });
+
+  renderResultScreen(root, {
+    sessionId: appState.currentSession.sessionId,
+    finalResult,
   });
 }
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { finalizeSession, submitSessionAnswer } from '../src/api/sessionApi.js';
+import { finalizeSession, submitSessionAnswer, submitSessionTiebreaker } from '../src/api/sessionApi.js';
 
 test('submitSessionAnswer sends payload to backend answer endpoint', async () => {
   global.window = {
@@ -79,4 +79,43 @@ test('finalizeSession sends request to finalize endpoint', async () => {
   assert.equal(capturedUrl, 'http://localhost:8000/api/v1/sessions/ses_1/finalize');
   assert.equal(capturedOptions.method, 'POST');
   assert.equal(result.preliminary_verdict, 'buy');
+});
+
+test('submitSessionTiebreaker sends selected option to backend tiebreaker endpoint', async () => {
+  global.window = {
+    location: {
+      protocol: 'http:',
+      hostname: 'localhost',
+    },
+  };
+
+  let capturedUrl = null;
+  let capturedOptions = null;
+
+  global.fetch = async (url, options) => {
+    capturedUrl = url;
+    capturedOptions = options;
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          session_id: 'ses_1',
+          score_for: 10,
+          score_against: 9.5,
+          diff: 0.5,
+          diff_percent: 2.56,
+          needs_tiebreaker: false,
+          preliminary_verdict: 'buy',
+          tiebreaker_option_id: 'wait_24h',
+        };
+      },
+    };
+  };
+
+  const result = await submitSessionTiebreaker({ sessionId: 'ses_1', optionId: 'wait_24h' });
+  assert.equal(capturedUrl, 'http://localhost:8000/api/v1/sessions/ses_1/tiebreaker');
+  assert.equal(capturedOptions.method, 'POST');
+  assert.deepEqual(JSON.parse(capturedOptions.body), { option_id: 'wait_24h' });
+  assert.equal(result.tiebreaker_option_id, 'wait_24h');
 });

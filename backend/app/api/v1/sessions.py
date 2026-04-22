@@ -10,8 +10,15 @@ from app.schemas.sessions import (
     SessionFinalizeResponse,
     SessionStartRequest,
     SessionStartResponse,
+    SessionTiebreakerRequest,
+    SessionTiebreakerResponse,
 )
-from app.services.session_service import finalize_session, start_session, submit_session_answer
+from app.services.session_service import (
+    finalize_session,
+    start_session,
+    submit_session_answer,
+    submit_session_tiebreaker,
+)
 
 router = APIRouter()
 
@@ -59,3 +66,16 @@ def finalize_decision_session(
     conn: sqlite3.Connection = Depends(get_db),
 ):
     return finalize_session(conn, session_id=session_id)
+
+
+@router.post('/{session_id}/tiebreaker', response_model=SessionTiebreakerResponse)
+def submit_tiebreaker(
+    session_id: str,
+    payload: SessionTiebreakerRequest,
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    return submit_session_tiebreaker(
+        conn,
+        session_id=session_id,
+        option_id=payload.option_id,
+    )
