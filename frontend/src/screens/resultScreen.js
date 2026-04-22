@@ -1,5 +1,6 @@
 // frontend/src/screens/resultScreen.js
 import { createScalesWidget } from '../components/scales.js';
+import { deriveResultWeights, preserveVisualContinuity } from '../scales/state.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -36,31 +37,6 @@ function formatNumber(value, fractionDigits = 2) {
   }).format(numeric);
 }
 
-function toBalanceByDiff(view) {
-  const scoreFor = Number(view.preliminaryScoreFor);
-  const scoreAgainst = Number(view.preliminaryScoreAgainst);
-  const diffPercent = Number(view.preliminaryDiffPercent);
-
-  if (Number.isFinite(scoreFor) && Number.isFinite(scoreAgainst) && scoreFor !== scoreAgainst) {
-    const maxScore = Math.max(Math.abs(scoreFor), Math.abs(scoreAgainst), 1);
-    return Math.max(-1, Math.min(1, (scoreFor - scoreAgainst) / maxScore));
-  }
-
-  if (Number.isFinite(diffPercent)) {
-    return Math.max(-1, Math.min(1, diffPercent / 40));
-  }
-
-  if (view.finalVerdict === 'buy_now') {
-    return 0.45;
-  }
-
-  if (view.finalVerdict === 'wait_24h') {
-    return -0.45;
-  }
-
-  return 0;
-}
-
 export function buildResultCopy(view) {
   const finalDecisionTitle = view.finalVerdictLabel || 'Решение готово';
   const basisHeadline = view.usedTiebreaker
@@ -89,6 +65,7 @@ export function buildResultCopy(view) {
 
 export function renderResultScreen(root, payload = {}) {
   const finalResult = payload.finalResult || {};
+  const previousVisual = payload.previousVisual || {};
   const view = buildResultViewModel(finalResult);
   const copy = buildResultCopy(view);
 
@@ -98,9 +75,22 @@ export function renderResultScreen(root, payload = {}) {
         <div class="kicker">Result</div>
         <h1 class="placeholder-title">Финальный итог</h1>
 
-        <div class="card result-scales-card">
-          <div class="input-label">Вердикт весов</div>
+        <div class="result-scales-card">
           <div id="result-scales-preview"></div>
+          <div class="scales-metrics">
+            <div class="metric-box">
+              <span>Против</span>
+              <strong>${escapeHtml(copy.preliminaryAgainst)}</strong>
+            </div>
+            <div class="metric-box metric-box--muted">
+              <span>Разница</span>
+              <strong>${escapeHtml(copy.preliminaryDiffPercent)}%</strong>
+            </div>
+            <div class="metric-box">
+              <span>За</span>
+              <strong>${escapeHtml(copy.preliminaryFor)}</strong>
+            </div>
+          </div>
         </div>
 
         <div class="card result-highlight">
@@ -141,12 +131,15 @@ export function renderResultScreen(root, payload = {}) {
   `;
 
   const mount = root.querySelector('#result-scales-preview');
-  const balance = toBalanceByDiff(view);
+  const resultWeights = deriveResultWeights(finalResult);
+  const startBalance = preserveVisualContinuity(previousVisual.balance, resultWeights.balance, 0.55);
+
   const scales = createScalesWidget({
     mode: 'result',
-    balance,
-    intensity: Math.min(1, Math.abs(balance) + 0.15),
-    caption: view.usedTiebreaker ? 'Итог закреплён после tie-breaker' : 'Итог закреплён математическим перевесом',
+    startBalance,
+    balance: resultWeights.balance,
+    intensity: Math.min(1, Math.abs(resultWeights.balance) + 0.15),
+    caption: view.usedTiebreaker ? 'Итог подтверждён после tie-breaker' : 'Итог подтверждён математическим перевесом',
     leftLabel: 'Против',
     rightLabel: 'За',
   });

@@ -1,72 +1,62 @@
 import { createScalesWidget } from '../components/scales.js';
+import { computePreviewWeights, preserveVisualContinuity } from '../scales/state.js';
 
 const DEFAULT_RANGE = 5;
 
-function normalizeBalance(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
-
-  return Math.max(-1, Math.min(1, (numeric - DEFAULT_RANGE) / DEFAULT_RANGE));
+function buildScaleCaption(diff) {
+  if (diff >= 8) return 'Сильный перевес в сторону покупки';
+  if (diff >= 3) return 'Умеренный перевес в сторону покупки';
+  if (diff <= -8) return 'Сильный перевес против покупки';
+  if (diff <= -3) return 'Умеренный перевес против покупки';
+  return 'Баланс близок к нейтральному';
 }
 
-function buildScaleCaption(value) {
-  const diff = Number(value) - DEFAULT_RANGE;
-
-  if (diff >= 4) {
-    return 'Сильный перевес в сторону покупки';
-  }
-
-  if (diff >= 2) {
-    return 'Уверенный уклон в сторону покупки';
-  }
-
-  if (diff <= -4) {
-    return 'Сильный перевес против покупки';
-  }
-
-  if (diff <= -2) {
-    return 'Уверенный уклон против покупки';
-  }
-
-  return 'Баланс почти ровный';
+function formatCompact(value) {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format(value);
 }
 
 export function renderQuestionScreen(root, context) {
-  const { question, session, totalQuestions = 0, onSubmitAnswer } = context;
+  const { question, session, totalQuestions = 0, onSubmitAnswer, onVisualChange } = context;
   const questionNumber = Number(question.order) || 1;
   const total = Number(totalQuestions) || questionNumber;
 
   root.innerHTML = `
     <section class="question">
-      <div class="card intro-box stack-12">
+      <div class="card intro-box question-layout">
         <div class="kicker">Вопрос ${questionNumber} / ${total}</div>
         <h1 class="title">${escapeHtml(question.text)}</h1>
         <p class="subtitle">${escapeHtml(question.hint)}</p>
 
-        <div class="card question-scales-card">
-          <div class="input-label">Живой баланс ответа</div>
+        <div class="question-scales-card">
           <div id="question-scales-preview"></div>
-        </div>
-
-        <div class="card">
-          <div class="input-label">Шкала</div>
-          <div style="display:grid; gap:12px;">
-            <input id="question-range" type="range" min="0" max="10" step="1" value="5" />
-            <div style="display:flex; justify-content:space-between; gap:12px; font-size:12px; color:#5d5d5d;">
-              <span>${escapeHtml(question.label_left)}</span>
-              <strong id="range-value">5</strong>
-              <span style="text-align:right;">${escapeHtml(question.label_right)}</span>
+          <div class="scales-metrics">
+            <div class="metric-box">
+              <span>Против</span>
+              <strong id="metric-against">0</strong>
             </div>
-            <div class="note" id="context-hint">${escapeHtml(question.context_hints['5'] || '—')}</div>
+            <div class="metric-box">
+              <span>Текущий вклад</span>
+              <strong id="metric-impact">5 / 10</strong>
+            </div>
+            <div class="metric-box">
+              <span>За</span>
+              <strong id="metric-for">0</strong>
+            </div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="input-label">Сессия</div>
-          <div class="note mono">${escapeHtml(session.sessionId)}</div>
-          <div class="note">Решение фиксируется шаг за шагом. Текущий ответ сразу влияет на итоговый перевес.</div>
+        <div class="question-controls">
+          <input id="question-range" type="range" min="0" max="10" step="1" value="5" />
+          <div class="question-range-labels">
+            <span>${escapeHtml(question.label_left)}</span>
+            <strong id="range-value">5</strong>
+            <span>${escapeHtml(question.label_right)}</span>
+          </div>
+          <div class="note" id="context-hint">${escapeHtml(question.context_hints['5'] || '—')}</div>
+        </div>
+
+        <div class="question-footnote">
+          <span class="inline-pill">Session ${escapeHtml(session.sessionId)}</span>
         </div>
 
         <div id="question-error" class="note" style="color:#b42318; display:none;"></div>
@@ -82,14 +72,25 @@ export function renderQuestionScreen(root, context) {
   const nextBtn = root.querySelector('#next-btn');
   const errorBox = root.querySelector('#question-error');
 
+  const metricFor = root.querySelector('#metric-for');
+  const metricAgainst = root.querySelector('#metric-against');
+  const metricImpact = root.querySelector('#metric-impact');
+
+  const previousBalance = Number(session?.scalesVisual?.balance) || 0;
+  const initialPreview = computePreviewWeights({
+    answers: session?.answers || {},
+    currentQuestionId: question.id,
+    currentValue: DEFAULT_RANGE,
+  });
+
   const scales = createScalesWidget({
     mode: 'question',
-    balance: normalizeBalance(DEFAULT_RANGE),
-    intensity: 0,
+    startBalance: previousBalance,
+    balance: preserveVisualContinuity(previousBalance, initialPreview.balance, 0.72),
+    intensity: Math.min(1, Math.abs(initialPreview.balance)),
     leftLabel: question.label_left,
     rightLabel: question.label_right,
-    caption: buildScaleCaption(DEFAULT_RANGE),
-    live: true,
+    caption: buildScaleCaption(initialPreview.diff),
   });
   scalesMount.append(scales.element);
 
@@ -97,11 +98,27 @@ export function renderQuestionScreen(root, context) {
     value.textContent = range.value;
     hint.textContent = question.context_hints?.[range.value] || '—';
 
-    const nextBalance = normalizeBalance(range.value);
+    const preview = computePreviewWeights({
+      answers: session?.answers || {},
+      currentQuestionId: question.id,
+      currentValue: range.value,
+    });
+
+    metricFor.textContent = formatCompact(preview.scoreFor);
+    metricAgainst.textContent = formatCompact(preview.scoreAgainst);
+    metricImpact.textContent = `${range.value} / 10`;
+
     scales.update({
-      balance: nextBalance,
-      intensity: Math.min(1, Math.abs(nextBalance)),
-      caption: buildScaleCaption(range.value),
+      balance: preview.balance,
+      intensity: Math.min(1, Math.abs(preview.balance)),
+      caption: buildScaleCaption(preview.diff),
+    });
+
+    onVisualChange?.({
+      balance: preview.balance,
+      scoreFor: preview.scoreFor,
+      scoreAgainst: preview.scoreAgainst,
+      source: 'question_live',
     });
   }
 

@@ -18,19 +18,10 @@ import { renderDramaScreen } from './screens/dramaScreen.js';
 import { renderTiebreakerScreen } from './screens/tiebreakerScreen.js';
 import { renderResultScreen } from './screens/resultScreen.js';
 import { resolvePostFinalizeScreen } from './flow/postFinalize.js';
+import { isFlowCompleted } from './flow/completion.js';
+import { computePreviewWeights, deriveResultWeights } from './scales/state.js';
 
 const root = document.getElementById('app');
-
-function isFlowCompleted(currentQuestionOrder, totalQuestions) {
-  const order = Number(currentQuestionOrder);
-  const total = Number(totalQuestions);
-
-  if (!Number.isFinite(order) || !Number.isFinite(total) || total < 1) {
-    return false;
-  }
-
-  return order > total;
-}
 
 async function boot() {
   try {
@@ -88,6 +79,12 @@ async function handleStartSession(draft) {
         itemName: draft.itemName,
         itemPrice: draft.itemPrice,
         answers: {},
+        scalesVisual: {
+          balance: 0,
+          scoreFor: 5,
+          scoreAgainst: 5,
+          source: 'session_start',
+        },
       },
     });
 
@@ -104,17 +101,26 @@ async function renderCurrentQuestion() {
   const totalQuestions = appState.flowConfig?.questions?.length || 0;
 
   if (isFlowCompleted(order, totalQuestions)) {
-    renderDramaScreen(root);
+    renderDramaScreen(root, { previousVisual: appState.currentSession?.scalesVisual || {} });
     await new Promise((resolve) => setTimeout(resolve, 900));
 
     const finalResult = await finalizeSession({
       sessionId: appState.currentSession.sessionId,
     });
 
+    const resultWeights = deriveResultWeights(finalResult);
+
     setAppState({
       currentSession: {
         ...appState.currentSession,
         finalResult,
+        scalesVisual: {
+          ...(appState.currentSession?.scalesVisual || {}),
+          balance: resultWeights.balance,
+          scoreFor: resultWeights.scoreFor,
+          scoreAgainst: resultWeights.scoreAgainst,
+          source: 'finalize_result',
+        },
       },
     });
 
@@ -132,6 +138,7 @@ async function renderCurrentQuestion() {
       renderResultScreen(root, {
         sessionId: appState.currentSession.sessionId,
         finalResult,
+        previousVisual: appState.currentSession?.scalesVisual || {},
       });
       return;
     }
@@ -160,6 +167,17 @@ async function renderCurrentQuestion() {
     question,
     session: appState.currentSession,
     totalQuestions,
+    onVisualChange: (visualPatch) => {
+      setAppState({
+        currentSession: {
+          ...appState.currentSession,
+          scalesVisual: {
+            ...(appState.currentSession?.scalesVisual || {}),
+            ...visualPatch,
+          },
+        },
+      });
+    },
     onSubmitAnswer: async ({ answerValue, questionId, questionOrder }) => {
       const response = await submitSessionAnswer({
         sessionId: appState.currentSession.sessionId,
@@ -168,13 +186,28 @@ async function renderCurrentQuestion() {
         answerValue,
       });
 
+      const answers = {
+        ...(appState.currentSession.answers || {}),
+        [questionId]: answerValue,
+      };
+
+      const preview = computePreviewWeights({
+        answers,
+        currentQuestionId: null,
+        includeCurrent: false,
+      });
+
       setAppState({
         currentSession: {
           ...appState.currentSession,
           currentQuestionOrder: response.current_question_order,
-          answers: {
-            ...(appState.currentSession.answers || {}),
-            [questionId]: answerValue,
+          answers,
+          scalesVisual: {
+            ...(appState.currentSession?.scalesVisual || {}),
+            balance: preview.balance,
+            scoreFor: preview.scoreFor,
+            scoreAgainst: preview.scoreAgainst,
+            source: 'question_submit',
           },
         },
       });
@@ -190,16 +223,26 @@ async function handleSubmitTiebreaker({ optionId }) {
     optionId,
   });
 
+  const resultWeights = deriveResultWeights(finalResult);
+
   setAppState({
     currentSession: {
       ...appState.currentSession,
       finalResult,
+      scalesVisual: {
+        ...(appState.currentSession?.scalesVisual || {}),
+        balance: resultWeights.balance,
+        scoreFor: resultWeights.scoreFor,
+        scoreAgainst: resultWeights.scoreAgainst,
+        source: 'tiebreaker_result',
+      },
     },
   });
 
   renderResultScreen(root, {
     sessionId: appState.currentSession.sessionId,
     finalResult,
+    previousVisual: appState.currentSession?.scalesVisual || {},
   });
 }
 
