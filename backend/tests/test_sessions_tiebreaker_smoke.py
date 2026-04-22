@@ -1,3 +1,4 @@
+# backend/tests/test_sessions_tiebreaker_smoke.py
 import sqlite3
 import tempfile
 import unittest
@@ -32,7 +33,7 @@ class SessionTiebreakerSmokeTest(unittest.TestCase):
         settings.sqlite_path = cls._original_sqlite_path
         cls._tmpdir.cleanup()
 
-    def test_submit_tiebreaker_returns_final_payload(self):
+    def test_submit_tiebreaker_returns_consistent_final_payload(self):
         conn = sqlite3.connect(str(self.db_path))
         try:
             conn.execute('DELETE FROM decisions')
@@ -85,13 +86,17 @@ class SessionTiebreakerSmokeTest(unittest.TestCase):
             response.json(),
             {
                 'session_id': 'ses_tb_1',
-                'score_for': 10.1,
-                'score_against': 9.8,
-                'diff': 0.3,
-                'diff_percent': 1.51,
+                'preliminary_score_for': 10.1,
+                'preliminary_score_against': 9.8,
+                'preliminary_diff': 0.3,
+                'preliminary_diff_percent': 1.51,
                 'needs_tiebreaker': False,
-                'preliminary_verdict': 'buy',
+                'preliminary_verdict': 'tiebreaker_required',
+                'final_verdict': 'wait_24h',
+                'final_verdict_label': 'Подождать 24 часа',
+                'used_tiebreaker': True,
                 'tiebreaker_option_id': 'wait_24h',
+                'result_basis': 'tiebreaker_choice',
             },
         )
 
