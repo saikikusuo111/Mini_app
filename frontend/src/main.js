@@ -1,6 +1,6 @@
 import { telegramAuth } from './api/authApi.js';
 import { getPurchaseFlow } from './api/configApi.js';
-import { startSession, submitSessionAnswer } from './api/sessionApi.js';
+import { finalizeSession, startSession, submitSessionAnswer } from './api/sessionApi.js';
 import { initTelegram } from './bridge/telegram.js';
 import { setAppState, appState } from './state/appState.js';
 import { hydrateSessionDraft } from './state/sessionStore.js';
@@ -82,7 +82,7 @@ async function handleStartSession(draft) {
       },
     });
 
-    renderCurrentQuestion();
+    await renderCurrentQuestion();
   } catch (error) {
     console.error('Session start failed:', error);
     setAppState({ screen: 'ERROR', error });
@@ -90,15 +90,27 @@ async function handleStartSession(draft) {
   }
 }
 
-function renderCurrentQuestion() {
+async function renderCurrentQuestion() {
   const order = appState.currentSession?.currentQuestionOrder;
   const totalQuestions = appState.flowConfig?.questions?.length || 0;
 
   if (isFlowCompleted(order, totalQuestions)) {
+    renderBootScreen(root, 'Финализирую предварительный результат');
+    const finalResult = await finalizeSession({
+      sessionId: appState.currentSession.sessionId,
+    });
+
+    setAppState({
+      currentSession: {
+        ...appState.currentSession,
+        finalResult,
+      },
+    });
     renderPlaceholderScreen(root, {
       sessionId: appState.currentSession.sessionId,
       totalQuestions,
       answers: appState.currentSession.answers || {},
+      finalResult,
     });
     return;
   }
@@ -137,7 +149,7 @@ function renderCurrentQuestion() {
         },
       });
 
-      renderCurrentQuestion();
+      await renderCurrentQuestion();
     },
   });
 }
