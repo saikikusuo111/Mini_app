@@ -4,8 +4,10 @@ from datetime import datetime, timezone
 from app.api.errors import api_error
 from app.core.security import hash_token
 from app.repositories.sessions_repo import (
+    complete_decision_session,
     create_decision_session,
     get_decision_session,
+    list_session_answers,
     update_current_question_order,
     upsert_session_answer,
 )
@@ -128,4 +130,91 @@ def submit_session_answer(
         'ok': True,
         'session_id': session_id,
         'current_question_order': next_question_order,
+    }
+
+
+def _compute_preliminary_result(*, flow: dict, answers_by_question_id: dict[str, int]) -> dict:
+    score_for = 0.0
+    score_against = 0.0
+
+    for question in flow['questions']:
+        value = answers_by_question_id[question['id']]
+        weight = float(question.get('weight', 1))
+        contribution = float(value) * weight
+
+        if question.get('polarity') == 'loss':
+            score_against += contribution
+        else:
+            score_for += contribution
+
+    diff = score_for - score_against
+    total = score_for + score_against
+    diff_percent = 0.0 if total == 0 else abs(diff) / total * 100
+
+    threshold = float(flow.get('tie_breaker_threshold_percent', 0))
+    needs_tiebreaker = diff_percent < threshold
+
+    if needs_tiebreaker:
+        preliminary_verdict = 'tiebreaker_required'
+    elif diff > 0:
+        preliminary_verdict = 'buy'
+    elif diff < 0:
+        preliminary_verdict = 'skip'
+    else:
+        preliminary_verdict = 'tiebreaker_required'
+
+    return {
+        'score_for': round(score_for, 4),
+        'score_against': round(score_against, 4),
+        'diff': round(diff, 4),
+        'diff_percent': round(diff_percent, 2),
+        'needs_tiebreaker': needs_tiebreaker,
+        'preliminary_verdict': preliminary_verdict,
+    }
+
+
+def finalize_session(conn: sqlite3.Connection, *, session_id: str) -> dict:
+    session = get_decision_session(conn, session_id=session_id)
+    if not session:
+        raise api_error(
+            code='SESSION_NOT_FOUND',
+            message='Сессия не найдена',
+            status_code=404,
+        )
+
+    flow = load_purchase_flow()
+    answers = list_session_answers(conn, session_id=session_id)
+    answers_by_question_id = {row['question_id']: row['answer_value'] for row in answers}
+
+    missing_questions = [
+        {'question_id': q['id'], 'question_order': q['order']}
+        for q in flow['questions']
+        if q['id'] not in answers_by_question_id
+    ]
+    if missing_questions:
+        raise api_error(
+            code='SESSION_INCOMPLETE',
+            message='Нельзя завершить сессию: не на все вопросы даны ответы',
+            details={'missing_questions': missing_questions},
+            status_code=409,
+        )
+
+    result = _compute_preliminary_result(
+        flow=flow,
+        answers_by_question_id=answers_by_question_id,
+    )
+    complete_decision_session(
+        conn,
+        session_id=session_id,
+        score_for=result['score_for'],
+        score_against=result['score_against'],
+        diff=result['diff'],
+        diff_percent=result['diff_percent'],
+        needs_tiebreaker=result['needs_tiebreaker'],
+    )
+    conn.commit()
+
+    return {
+        'session_id': session_id,
+        **result,
     }

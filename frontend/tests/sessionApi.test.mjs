@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { submitSessionAnswer } from '../src/api/sessionApi.js';
+import { finalizeSession, submitSessionAnswer } from '../src/api/sessionApi.js';
 
 test('submitSessionAnswer sends payload to backend answer endpoint', async () => {
   global.window = {
@@ -42,4 +42,41 @@ test('submitSessionAnswer sends payload to backend answer endpoint', async () =>
     answer_value: 7,
   });
   assert.equal(result.current_question_order, 2);
+});
+
+test('finalizeSession sends request to finalize endpoint', async () => {
+  global.window = {
+    location: {
+      protocol: 'http:',
+      hostname: 'localhost',
+    },
+  };
+
+  let capturedUrl = null;
+  let capturedOptions = null;
+
+  global.fetch = async (url, options) => {
+    capturedUrl = url;
+    capturedOptions = options;
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          session_id: 'ses_1',
+          score_for: 10,
+          score_against: 6,
+          diff: 4,
+          diff_percent: 25,
+          needs_tiebreaker: false,
+          preliminary_verdict: 'buy',
+        };
+      },
+    };
+  };
+
+  const result = await finalizeSession({ sessionId: 'ses_1' });
+  assert.equal(capturedUrl, 'http://localhost:8000/api/v1/sessions/ses_1/finalize');
+  assert.equal(capturedOptions.method, 'POST');
+  assert.equal(result.preliminary_verdict, 'buy');
 });

@@ -2,6 +2,7 @@ export function renderPlaceholderScreen(root, payload = {}) {
   const answers = payload.answers || {};
   const answeredCount = Object.keys(answers).length;
   const totalQuestions = Number(payload.totalQuestions || 0);
+  const finalResult = payload.finalResult || null;
 
   root.innerHTML = `
     <section class="placeholder">
@@ -22,6 +23,11 @@ export function renderPlaceholderScreen(root, payload = {}) {
         <div class="card">
           <div class="input-label">Ответы</div>
           ${renderAnswersList(answers)}
+        </div>
+
+        <div class="card">
+          <div class="input-label">Pre-result (finalize)</div>
+          ${renderPreResult(finalResult)}
         </div>
       </div>
     </section>
@@ -46,6 +52,21 @@ function renderAnswersList(answers) {
         )
         .join('')}
     </div>
+  `;
+}
+
+function renderPreResult(finalResult) {
+  if (!finalResult) {
+    return '<div class="note">Предварительный результат пока не получен.</div>';
+  }
+
+  return `
+    <div class="note">score_for: <strong>${escapeHtml(finalResult.score_for)}</strong></div>
+    <div class="note">score_against: <strong>${escapeHtml(finalResult.score_against)}</strong></div>
+    <div class="note">diff: <strong>${escapeHtml(finalResult.diff)}</strong></div>
+    <div class="note">diff_percent: <strong>${escapeHtml(finalResult.diff_percent)}</strong></div>
+    <div class="note">needs_tiebreaker: <strong>${escapeHtml(finalResult.needs_tiebreaker)}</strong></div>
+    <div class="note">preliminary_verdict: <strong>${escapeHtml(finalResult.preliminary_verdict)}</strong></div>
   `;
 }
 

@@ -93,3 +93,53 @@ def update_current_question_order(conn: sqlite3.Connection, *, session_id: str, 
         ''',
         (question_order, utc_now(), session_id),
     )
+
+
+def list_session_answers(conn: sqlite3.Connection, *, session_id: str) -> list[sqlite3.Row]:
+    return conn.execute(
+        '''
+        SELECT question_id, question_order, answer_value
+        FROM session_answers
+        WHERE session_id = ?
+        ORDER BY question_order ASC
+        ''',
+        (session_id,),
+    ).fetchall()
+
+
+def complete_decision_session(
+    conn: sqlite3.Connection,
+    *,
+    session_id: str,
+    score_for: float,
+    score_against: float,
+    diff: float,
+    diff_percent: float,
+    needs_tiebreaker: bool,
+) -> None:
+    conn.execute(
+        '''
+        UPDATE decision_sessions
+        SET
+          status = ?,
+          completed_at = ?,
+          updated_at = ?,
+          preliminary_score_for = ?,
+          preliminary_score_against = ?,
+          preliminary_diff = ?,
+          preliminary_diff_percent = ?,
+          needs_tiebreaker = ?
+        WHERE id = ?
+        ''',
+        (
+            'pre_result',
+            utc_now(),
+            utc_now(),
+            score_for,
+            score_against,
+            diff,
+            diff_percent,
+            int(needs_tiebreaker),
+            session_id,
+        ),
+    )

@@ -7,10 +7,11 @@ from app.core.db import get_db
 from app.schemas.sessions import (
     SessionAnswerRequest,
     SessionAnswerResponse,
+    SessionFinalizeResponse,
     SessionStartRequest,
     SessionStartResponse,
 )
-from app.services.session_service import start_session, submit_session_answer
+from app.services.session_service import finalize_session, start_session, submit_session_answer
 
 router = APIRouter()
 
@@ -50,3 +51,11 @@ def answer_question(
         question_order=payload.question_order,
         answer_value=payload.answer_value,
     )
+
+
+@router.post('/{session_id}/finalize', response_model=SessionFinalizeResponse)
+def finalize_decision_session(
+    session_id: str,
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    return finalize_session(conn, session_id=session_id)

@@ -67,3 +67,18 @@ export async function submitSessionAnswer({ sessionId, questionId, questionOrder
     }),
   });
 }
+
+export async function finalizeSession({ sessionId }) {
+  const cleanSessionId = String(sessionId ?? '').trim();
+  if (!cleanSessionId) {
+    throw {
+      code: 'INVALID_SESSION_ID',
+      message: 'Не удалось завершить: отсутствует session_id',
+      details: { sessionId },
+    };
+  }
+
+  return apiFetch(`/sessions/${encodeURIComponent(cleanSessionId)}/finalize`, {
+    method: 'POST',
+  });
+}

@@ -23,3 +23,13 @@ class SessionAnswerResponse(BaseModel):
     ok: bool
     session_id: str
     current_question_order: int
+
+
+class SessionFinalizeResponse(BaseModel):
+    session_id: str
+    score_for: float
+    score_against: float
+    diff: float
+    diff_percent: float
+    needs_tiebreaker: bool
+    preliminary_verdict: str
